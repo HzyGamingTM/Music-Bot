@@ -170,7 +170,7 @@ const cmdcfgs = {
 			case "2": case "one": loopOption++;
 			case "1": case "all": loopOption++;
 		}
-		let result = MusicManager.setloop(msg.guild.id, loopOption));
+		let result = MusicManager.setloop(msg.guild.id, loopOption);
 
 		if (result == 1) {
 			// TODO: the bot is not in a voice channel

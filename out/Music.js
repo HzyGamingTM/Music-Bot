@@ -25,8 +25,10 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MusicManager = void 0;
 const djsv = __importStar(require("@discordjs/voice"));
-const ytdl = __importStar(require("youtube-dl-exec"));
+const ytdl = require("youtube-dl-exec");
 const prism = __importStar(require("prism-media"));
+const fs = require("node:fs");
+const stream = require("node:stream");
 const FFMPEG_PCM_ARGUMENTS = [
     '-analyzeduration', '0',
     '-loglevel', '0', '-f', 's16le',
@@ -61,14 +63,12 @@ class Queue {
         this.tracks.push(track);
     }
     next() {
-        let retval = undefined;
         switch (this.loopOption) {
-            case 0: return (track = tracks.shift());
-            case 1: return (track ? track : (track = tracks.shift()));
-            case 2:
-                retval = tracks.shift();
-                tracks.push(retval);
-                return retval;
+            case 1: return (this.track != undefined
+                ? this.track
+                : (this.track = this.tracks.shift()));
+            case 2: this.tracks.push(this.track);
+            case 0: return (this.track = this.tracks.shift());
         }
     }
 }
@@ -85,12 +85,12 @@ class MusicManager {
         let player = djsv.createAudioPlayer();
         player.on(djsv.AudioPlayerStatus.Idle, (oldState, newState) => {
             console.log("Idle");
-            if (newState.status !== djsv.AudioPlayerStatus.Idle)
+            if (newState.status != djsv.AudioPlayerStatus.Idle)
                 return;
             let voicer = this.voicers.get(guild.id);
-            if (!voicer.queue.tracks.length)
-                return;
             let track = voicer.queue.next();
+            if (track == undefined)
+                return;
             this.playNow(guild.id, track.link, track.options);
         });
         voiceConn.subscribe(player);
@@ -111,13 +111,19 @@ class MusicManager {
         let voicer = this.voicers.get(gid);
         voicer.queue.add(track);
         if (voicer.player.state.status != djsv.AudioPlayerStatus.Idle)
-            return;
+            return 0;
         track = voicer.queue.next();
-        this.playNow(gid, track.link, track.options);
+        // should not happen
+        if (track == undefined)
+            return 69;
+        return this.playNow(gid, track.link, track.options);
     }
     static playNow(gid, link, opt) {
-        console.log("Playnow");
+        let voicer = this.voicers.get(gid);
+        if (voicer == undefined)
+            return 1;
         let ffmpegArgs = [
+            "-f", "s16le", "-i", "-",
             "-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
             "-ar", "48000", "-ac", "2"
         ];
@@ -139,14 +145,34 @@ class MusicManager {
                 ffmpegArgs.push(filter);
             }
         }
+        let demuxer = new prism.opus.WebmDemuxer();
+        let decoder = new prism.opus.Decoder({
+            frameSize: 960, rate: 48000, channels: 2
+        });
         let transcoder = new prism.FFmpeg({ args: ffmpegArgs });
         let encoder = new prism.opus.Encoder({
             rate: 48000, channels: 2, frameSize: 960
         });
-        let subprocess = ytdl.exec(link, { output: "-", format: "251" });
-        let output = subprocess.stdout.pipe(transcoder).pipe(encoder);
+        /*
+        let subprocess = ytdl(link, { output: "t.webm", format: "251" });
+        subprocess.then(_ => {
+        */
+        let output = fs.createReadStream("t.webm")
+            .pipe(demuxer).pipe(decoder)
+            .pipe(new stream.PassThrough())
+            .pipe(transcoder).pipe(encoder);
         let resource = new djsv.AudioResource([], [output], "", 5);
-        this.voicers.get(gid).player.play(resource);
+        voicer.player.play(resource);
+        // });
+        return 0;
+    }
+    static setloop(gid, option) {
+        let voicer = this.voicers.get(gid);
+        if (voicer == undefined)
+            return 1;
+        voicer.queue.loopOption = option;
+        console.log("Loop: " + option);
+        return 0;
     }
 }
 exports.MusicManager = MusicManager;

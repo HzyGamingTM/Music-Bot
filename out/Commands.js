@@ -97,6 +97,7 @@ class MessageCommands {
         textChannel.send("Leav");
     }
     static Play(msg, now = false) {
+        // TODO: check if user is in a voice channel
         let args = proparse.parse(msg.content);
         let oa = proparse.optandargs(args, this.cmdcfgs.PlayNow);
         args = oa.args;
@@ -136,12 +137,20 @@ class MessageCommands {
                     break;
             }
         }
+        let result = 0;
         if (now)
-            Music_1.MusicManager.playNow(msg.guild.id, args[1], passOptions);
+            result = Music_1.MusicManager.playNow(msg.guild.id, args[1], passOptions);
         else
-            Music_1.MusicManager.play(msg.guild.id, args[1], passOptions);
+            result = Music_1.MusicManager.play(msg.guild.id, args[1], passOptions);
+        if (result == 1) {
+            // TODO: the bot is not in a voice channel
+        }
+        else if (result == 2) {
+            // TODO: the user is not in the same voice channel as the bot
+        }
     }
     static SetLoop(msg) {
+        // TODO: check if user is in a voice channel
         // simple parsing
         let args = msg.content.split(" ");
         if (args.length < 2) {
@@ -156,7 +165,13 @@ class MessageCommands {
             case "1":
             case "all": loopOption++;
         }
-        Music_1.MusicManager.setloop(msg.guild.id, loopOption);
+        let result = Music_1.MusicManager.setloop(msg.guild.id, loopOption);
+        if (result == 1) {
+            // TODO: the bot is not in a voice channel
+        }
+        else if (result == 2) {
+            // TODO: the user is not in the same voice channel as the bot
+        }
     }
 }
 exports.MessageCommands = MessageCommands;

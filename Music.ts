@@ -1,7 +1,9 @@
 import * as djs from "discord.js";
 import * as djsv from "@discordjs/voice";
-import * as ytdl from "youtube-dl-exec";
+const ytdl = require("youtube-dl-exec");
 import * as prism from "prism-media";
+const fs = require("node:fs");
+const stream = require("node:stream");
 
 const FFMPEG_PCM_ARGUMENTS = [
 	'-analyzeduration', '0',
@@ -47,16 +49,12 @@ class Queue {
 	}
 
 	public next() : any {
-		let retval = undefined;
 		switch(this.loopOption) {
-			case 0: return (this.track = this.tracks.shift());
-			case 1: return (this.track
+			case 1: return (this.track != undefined
 				? this.track
 				: (this.track = this.tracks.shift()));
-			case 2:
-				retval = this.tracks.shift();
-				this.tracks.push(retval);
-				return retval;
+			case 2: this.tracks.push(this.track);
+			case 0: return (this.track = this.tracks.shift());
 		}
 	}
 }
@@ -87,7 +85,6 @@ export class MusicManager {
 			if (newState.status != djsv.AudioPlayerStatus.Idle)
 				return;
 			let voicer = this.voicers.get(guild.id);
-			if (!voicer.queue.tracks.length) return;
 			let track = voicer.queue.next();
 			if (track == undefined) return;
 			this.playNow(guild.id, track.link, track.options);
@@ -126,6 +123,7 @@ export class MusicManager {
 		let voicer = this.voicers.get(gid);
 		if (voicer == undefined) return 1;
 		let ffmpegArgs = [
+			"-f", "s16le", "-i", "-",
 			"-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
 			"-ar", "48000", "-ac", "2"
 		];
@@ -147,24 +145,36 @@ export class MusicManager {
 				ffmpegArgs.push(filter);
 			}
 		}
+		let demuxer = new prism.opus.WebmDemuxer();
+		let decoder = new prism.opus.Decoder({
+			frameSize: 960, rate: 48000, channels: 2
+		});
 		let transcoder = new prism.FFmpeg({ args: ffmpegArgs });
 		let encoder = new prism.opus.Encoder({
 			rate: 48000, channels: 2, frameSize: 960
 		});
 
-		let subprocess = ytdl.exec(link, { output: "-", format: "251" });
-		let output = subprocess.stdout.pipe(transcoder).pipe(encoder);
-		let resource = new djsv.AudioResource([], [output], "", 5);
-		
-		voicer.player.play(resource);
+		/*
+		let subprocess = ytdl(link, { output: "t.webm", format: "251" });
+		subprocess.then(_ => {
+		*/
+			let output = fs.createReadStream("t.webm")
+				.pipe(demuxer).pipe(decoder)
+				.pipe(new stream.PassThrough())
+				.pipe(transcoder).pipe(encoder)
+			let resource = new djsv.AudioResource([], [output], "", 5);
+			
+			voicer.player.play(resource);
+		// });
 
 		return 0;
 	}
 
 	public static setloop(gid: djs.Snowflake, option: number) : number {
 		let voicer = this.voicers.get(gid);
-		if (voicer == undefined) return false;
+		if (voicer == undefined) return 1;
 		voicer.queue.loopOption = option;
-		return true;
+		console.log("Loop: " + option);
+		return 0;
 	}
 }
