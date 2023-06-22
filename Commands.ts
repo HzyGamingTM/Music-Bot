@@ -58,7 +58,8 @@ const cmdcfgs = {
 			case "ping": this.Ping(msg); break;
 			case "join": this.Join(msg); break;
 			case "leave": this.Leave(msg); break;
-			case "playnow": this.PlayNow(msg); break;
+			case "play": this.Play(msg); break;
+			case "playnow": this.Play(msg, true); break;
 		}
 	}
 
@@ -107,7 +108,7 @@ const cmdcfgs = {
 		textChannel.send("Leav");
 	}
 
-	static PlayNow(msg: Message) : void {
+	static Play(msg: Message, now: boolean = false) : void {
 		let args = proparse.parse(msg.content);
 		let oa = proparse.optandargs(args, this.cmdcfgs.PlayNow);
 		args = oa.args;
@@ -145,6 +146,9 @@ const cmdcfgs = {
 			}
 		}
 
-		MusicManager.playNow(msg.guild.id, args[1], passOptions);
+		if (now)
+			MusicManager.playNow(msg.guild.id, args[1], passOptions);
+		else
+			MusicManager.play(msg.guild.id, args[1], passOptions);
 	}
 }

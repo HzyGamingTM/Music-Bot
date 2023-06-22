@@ -48,14 +48,14 @@ class MessageCommands {
             case "join":
                 this.Join(msg);
                 break;
+            case "leave":
+                this.Leave(msg);
+                break;
             case "play":
-                this.Play(msg, false);
+                this.Play(msg);
                 break;
             case "playnow":
                 this.Play(msg, true);
-                break;
-            case "leave":
-                this.Leave(msg);
                 break;
         }
     }
@@ -93,7 +93,7 @@ class MessageCommands {
         Music_1.MusicManager.leave(guild.id);
         textChannel.send("Leav");
     }
-    static Play(msg, now) {
+    static Play(msg, now = false) {
         let args = proparse.parse(msg.content);
         let oa = proparse.optandargs(args, this.cmdcfgs.PlayNow);
         args = oa.args;
