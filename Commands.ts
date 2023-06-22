@@ -30,13 +30,8 @@ const cmdcfgs = {
 			"--volume": 1, "-v": 1,
 			"--pitch": 1, "-p": 1,
 			"--rate": 1, "-r": 1,
-			"--loop": 1, "-l": 1,
-			// Bass-boosting is also a bit of the gray area.
-			// Until I figure out how to EQ in ffmpeg, at which point
-			// it might just turn into an EQ option.
-			// Probably extremely cpu intensive though and I'm lazy so
-			// bass-boosting gets left out for now.
-			// "--bass-boost": 0, "-bb": 0,
+			// count comes later
+			// "--count": 1, "-c": 1,
 		}	
 	};
 
@@ -60,6 +55,7 @@ const cmdcfgs = {
 			case "leave": this.Leave(msg); break;
 			case "play": this.Play(msg); break;
 			case "playnow": this.Play(msg, true); break;
+			case "loop": this.SetLoop(msg); break;
 		}
 	}
 
@@ -109,6 +105,7 @@ const cmdcfgs = {
 	}
 
 	static Play(msg: Message, now: boolean = false) : void {
+		// TODO: check if user is in a voice channel
 		let args = proparse.parse(msg.content);
 		let oa = proparse.optandargs(args, this.cmdcfgs.PlayNow);
 		args = oa.args;
@@ -146,9 +143,39 @@ const cmdcfgs = {
 			}
 		}
 
+		let result = 0;
 		if (now)
-			MusicManager.playNow(msg.guild.id, args[1], passOptions);
+			result = MusicManager.playNow(msg.guild.id, args[1], passOptions);
 		else
-			MusicManager.play(msg.guild.id, args[1], passOptions);
+			result = MusicManager.play(msg.guild.id, args[1], passOptions);
+
+		if (result == 1) {
+			// TODO: the bot is not in a voice channel
+		} else if (result == 2) {
+			// TODO: the user is not in the same voice channel as the bot
+		}
+	}
+
+	static SetLoop(msg: Message) {
+		// TODO: check if user is in a voice channel
+		// simple parsing
+		let args = msg.content.split(" ");
+		if (args.length < 2) {
+			// TODO: inform the user of the usage
+			return;
+		}
+		let option = args[1].toLowerCase();
+		let loopOption = 0;
+		switch(args[1]) {
+			case "2": case "one": loopOption++;
+			case "1": case "all": loopOption++;
+		}
+		let result = MusicManager.setloop(msg.guild.id, loopOption));
+
+		if (result == 1) {
+			// TODO: the bot is not in a voice channel
+		} else if (result == 2) {
+			// TODO: the user is not in the same voice channel as the bot
+		}
 	}
 }

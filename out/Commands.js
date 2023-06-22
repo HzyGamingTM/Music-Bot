@@ -57,6 +57,9 @@ class MessageCommands {
             case "playnow":
                 this.Play(msg, true);
                 break;
+            case "loop":
+                this.SetLoop(msg);
+                break;
         }
     }
     static Ping(msg) {
@@ -138,6 +141,23 @@ class MessageCommands {
         else
             Music_1.MusicManager.play(msg.guild.id, args[1], passOptions);
     }
+    static SetLoop(msg) {
+        // simple parsing
+        let args = msg.content.split(" ");
+        if (args.length < 2) {
+            // TODO: inform the user of the usage
+            return;
+        }
+        let option = args[1].toLowerCase();
+        let loopOption = 0;
+        switch (args[1]) {
+            case "2":
+            case "one": loopOption++;
+            case "1":
+            case "all": loopOption++;
+        }
+        Music_1.MusicManager.setloop(msg.guild.id, loopOption);
+    }
 }
 exports.MessageCommands = MessageCommands;
 MessageCommands.pro = {
@@ -165,13 +185,8 @@ MessageCommands.cmdcfgs = {
         "--volume": 1, "-v": 1,
         "--pitch": 1, "-p": 1,
         "--rate": 1, "-r": 1,
-        "--loop": 1, "-l": 1,
-        // Bass-boosting is also a bit of the gray area.
-        // Until I figure out how to EQ in ffmpeg, at which point
-        // it might just turn into an EQ option.
-        // Probably extremely cpu intensive though and I'm lazy so
-        // bass-boosting gets left out for now.
-        // "--bass-boost": 0, "-bb": 0,
+        // count comes later
+        // "--count": 1, "-c": 1,
     }
 };
 MessageCommands.prefix = '$';

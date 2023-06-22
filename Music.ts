@@ -39,7 +39,7 @@ class Queue {
 	public constructor(loopOption: number = 0) {
 		this.loopOption = loopOption;
 		this.tracks = [];
-		this.track = null;
+		this.track = undefined;
 	}
 
 	public add(track: any) : void {
@@ -47,7 +47,17 @@ class Queue {
 	}
 
 	public next() : any {
-		return (this.track = this.tracks.shift());
+		let retval = undefined;
+		switch(this.loopOption) {
+			case 0: return (this.track = this.tracks.shift());
+			case 1: return (this.track
+				? this.track
+				: (this.track = this.tracks.shift()));
+			case 2:
+				retval = this.tracks.shift();
+				this.tracks.push(retval);
+				return retval;
+		}
 	}
 }
 
@@ -74,11 +84,12 @@ export class MusicManager {
 		let player = djsv.createAudioPlayer();
 		player.on(djsv.AudioPlayerStatus.Idle, (oldState, newState) => {
 			console.log("Idle");
-			if (newState.status !== djsv.AudioPlayerStatus.Idle)
+			if (newState.status != djsv.AudioPlayerStatus.Idle)
 				return;
 			let voicer = this.voicers.get(guild.id);
 			if (!voicer.queue.tracks.length) return;
 			let track = voicer.queue.next();
+			if (track == undefined) return;
 			this.playNow(guild.id, track.link, track.options);
 		});
 		voiceConn.subscribe(player);
@@ -97,20 +108,23 @@ export class MusicManager {
 		this.voicers.delete(gid);
 	}
 
-	public static play(gid: djs.Snowflake, link: string, opt: any) {
+	public static play(gid: djs.Snowflake, link: string, opt: any): number {
 		console.log("Play");
 		let track = { link: link, options: opt };
 		let voicer = this.voicers.get(gid);
 		voicer.queue.add(track);
 
 		if (voicer.player.state.status != djsv.AudioPlayerStatus.Idle)
-			return;
+			return 0;
 		track = voicer.queue.next();
-		this.playNow(gid, track.link, track.options);
+		// should not happen
+		if (track == undefined) return 69;
+		return this.playNow(gid, track.link, track.options);
 	}
 
-	public static playNow(gid: djs.Snowflake, link: string, opt: any) {
-		console.log("Playnow");
+	public static playNow(gid: djs.Snowflake, link: string, opt: any): number {
+		let voicer = this.voicers.get(gid);
+		if (voicer == undefined) return 1;
 		let ffmpegArgs = [
 			"-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
 			"-ar", "48000", "-ac", "2"
@@ -142,6 +156,15 @@ export class MusicManager {
 		let output = subprocess.stdout.pipe(transcoder).pipe(encoder);
 		let resource = new djsv.AudioResource([], [output], "", 5);
 		
-		this.voicers.get(gid).player.play(resource);
+		voicer.player.play(resource);
+
+		return 0;
+	}
+
+	public static setloop(gid: djs.Snowflake, option: number) : number {
+		let voicer = this.voicers.get(gid);
+		if (voicer == undefined) return false;
+		voicer.queue.loopOption = option;
+		return true;
 	}
 }

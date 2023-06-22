@@ -55,13 +55,21 @@ class Queue {
     constructor(loopOption = 0) {
         this.loopOption = loopOption;
         this.tracks = [];
-        this.track = null;
+        this.track = undefined;
     }
     add(track) {
         this.tracks.push(track);
     }
     next() {
-        return (this.track = this.tracks.shift());
+        let retval = undefined;
+        switch (this.loopOption) {
+            case 0: return (track = tracks.shift());
+            case 1: return (track ? track : (track = tracks.shift()));
+            case 2:
+                retval = tracks.shift();
+                tracks.push(retval);
+                return retval;
+        }
     }
 }
 class MusicManager {
