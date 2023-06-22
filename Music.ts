@@ -31,12 +31,23 @@ function isYtLink(inp: string) : boolean {
 
 class Queue {
 	public loopOption: number;
-	public tracks: string[];
+	// Type is any because we might store metadata like title and options.
+	public tracks: any[];
 
-	public constructor(
-		loopOption: number = 0
-	) {
+	public track: any;
+
+	public constructor(loopOption: number = 0) {
 		this.loopOption = loopOption;
+		this.tracks = [];
+		this.track = null;
+	}
+
+	public add(track: any) : void {
+		this.tracks.push(track);
+	}
+
+	public shift() : any {
+		return (this.track = this.tracks.shift());
 	}
 }
 
@@ -61,6 +72,14 @@ export class MusicManager {
 		});
 
 		let player = djsv.createAudioPlayer();
+		player.on(djsv.AudioPlayerStatus.Idle, (oldState, newState) => {
+			if (newState.status !== djsv.AudioPlayerStatus.Idle)
+				return;
+			let voicer = this.voicers.get(guild.id);
+			if (!voicer.queue.tracks.length) return;
+			let track = voicer.queue.shift();
+			this.playNow(guild.id, track.link, track.options);
+		});
 		voiceConn.subscribe(player);
 
 		this.voicers.set(guild.id, {
@@ -75,8 +94,15 @@ export class MusicManager {
 		this.voicers.delete(gid);
 	}
 
-	public static play(gid: djs.Snowflake, args: string[]) {
-		// TODO: The
+	public static play(gid: djs.Snowflake, link: string, opt: any) {
+		let track = { link: link, options: opt };
+		let voicer = this.voicers.get(gid);
+		voicer.queue.add(track);
+
+		if (voicer.player.state.status != djsv.AudioPlayerStatus.Idle)
+			return;
+		track = voicer.queue.shift();
+		this.playNow(gid, track.link, track.options);
 	}
 
 	public static playNow(gid: djs.Snowflake, link: string, opt: any) {
