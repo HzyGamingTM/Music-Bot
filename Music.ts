@@ -4,6 +4,7 @@ const ytdl = require("youtube-dl-exec");
 import * as prism from "prism-media";
 const fs = require("node:fs");
 const stream = require("node:stream");
+const childp = require("child_process");
 
 const FFMPEG_PCM_ARGUMENTS = [
 	'-analyzeduration', '0',
