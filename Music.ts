@@ -46,7 +46,7 @@ class Queue {
 		this.tracks.push(track);
 	}
 
-	public shift() : any {
+	public next() : any {
 		return (this.track = this.tracks.shift());
 	}
 }
@@ -73,19 +73,22 @@ export class MusicManager {
 
 		let player = djsv.createAudioPlayer();
 		player.on(djsv.AudioPlayerStatus.Idle, (oldState, newState) => {
+			console.log("Idle");
 			if (newState.status !== djsv.AudioPlayerStatus.Idle)
 				return;
 			let voicer = this.voicers.get(guild.id);
 			if (!voicer.queue.tracks.length) return;
-			let track = voicer.queue.shift();
+			let track = voicer.queue.next();
 			this.playNow(guild.id, track.link, track.options);
 		});
 		voiceConn.subscribe(player);
 
+		let queue = new Queue(0);
+
 		this.voicers.set(guild.id, {
 			conn: voiceConn,
 			player: player,
-			queue: null,
+			queue: queue,
 		});
 	}
 
@@ -95,17 +98,19 @@ export class MusicManager {
 	}
 
 	public static play(gid: djs.Snowflake, link: string, opt: any) {
+		console.log("Play");
 		let track = { link: link, options: opt };
 		let voicer = this.voicers.get(gid);
 		voicer.queue.add(track);
 
 		if (voicer.player.state.status != djsv.AudioPlayerStatus.Idle)
 			return;
-		track = voicer.queue.shift();
+		track = voicer.queue.next();
 		this.playNow(gid, track.link, track.options);
 	}
 
 	public static playNow(gid: djs.Snowflake, link: string, opt: any) {
+		console.log("Playnow");
 		let ffmpegArgs = [
 			"-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
 			"-ar", "48000", "-ac", "2"

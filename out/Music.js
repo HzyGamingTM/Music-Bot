@@ -54,6 +54,14 @@ function isYtLink(inp) {
 class Queue {
     constructor(loopOption = 0) {
         this.loopOption = loopOption;
+        this.tracks = [];
+        this.track = null;
+    }
+    add(track) {
+        this.tracks.push(track);
+    }
+    next() {
+        return (this.track = this.tracks.shift());
     }
 }
 class MusicManager {
@@ -67,21 +75,40 @@ class MusicManager {
             selfMute: false
         });
         let player = djsv.createAudioPlayer();
+        player.on(djsv.AudioPlayerStatus.Idle, (oldState, newState) => {
+            console.log("Idle");
+            if (newState.status !== djsv.AudioPlayerStatus.Idle)
+                return;
+            let voicer = this.voicers.get(guild.id);
+            if (!voicer.queue.tracks.length)
+                return;
+            let track = voicer.queue.next();
+            this.playNow(guild.id, track.link, track.options);
+        });
         voiceConn.subscribe(player);
+        let queue = new Queue(0);
         this.voicers.set(guild.id, {
             conn: voiceConn,
             player: player,
-            queue: null,
+            queue: queue,
         });
     }
     static leave(gid) {
         this.voicers.get(gid).conn.destroy();
         this.voicers.delete(gid);
     }
-    static play(gid, args) {
-        // TODO: The
+    static play(gid, link, opt) {
+        console.log("Play");
+        let track = { link: link, options: opt };
+        let voicer = this.voicers.get(gid);
+        voicer.queue.add(track);
+        if (voicer.player.state.status != djsv.AudioPlayerStatus.Idle)
+            return;
+        track = voicer.queue.next();
+        this.playNow(gid, track.link, track.options);
     }
     static playNow(gid, link, opt) {
+        console.log("Playnow");
         let ffmpegArgs = [
             "-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
             "-ar", "48000", "-ac", "2"

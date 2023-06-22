@@ -48,11 +48,14 @@ class MessageCommands {
             case "join":
                 this.Join(msg);
                 break;
-            case "leave":
-                this.Leave(msg);
+            case "play":
+                this.Play(msg, false);
                 break;
             case "playnow":
-                this.PlayNow(msg);
+                this.Play(msg, true);
+                break;
+            case "leave":
+                this.Leave(msg);
                 break;
         }
     }
@@ -90,7 +93,7 @@ class MessageCommands {
         Music_1.MusicManager.leave(guild.id);
         textChannel.send("Leav");
     }
-    static PlayNow(msg) {
+    static Play(msg, now) {
         let args = proparse.parse(msg.content);
         let oa = proparse.optandargs(args, this.cmdcfgs.PlayNow);
         args = oa.args;
@@ -130,7 +133,10 @@ class MessageCommands {
                     break;
             }
         }
-        Music_1.MusicManager.playNow(msg.guild.id, args[1], passOptions);
+        if (now)
+            Music_1.MusicManager.playNow(msg.guild.id, args[1], passOptions);
+        else
+            Music_1.MusicManager.play(msg.guild.id, args[1], passOptions);
     }
 }
 exports.MessageCommands = MessageCommands;
@@ -159,6 +165,7 @@ MessageCommands.cmdcfgs = {
         "--volume": 1, "-v": 1,
         "--pitch": 1, "-p": 1,
         "--rate": 1, "-r": 1,
+        "--loop": 1, "-l": 1,
         // Bass-boosting is also a bit of the gray area.
         // Until I figure out how to EQ in ffmpeg, at which point
         // it might just turn into an EQ option.
