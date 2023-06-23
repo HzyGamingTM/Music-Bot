@@ -141,6 +141,7 @@ export class MusicManager {
 			}
 			for (let rate of opt.rate) filter += ",atempo=" + rate.toString();
 
+			if (filter[0] == ",") filter = filter.substring(1);
 			if (filter !== "") {
 				ffmpegArgs.push("-filter:a");
 				ffmpegArgs.push(filter);
@@ -161,7 +162,6 @@ export class MusicManager {
 		*/
 			let output = fs.createReadStream("t.webm")
 				.pipe(demuxer).pipe(decoder)
-				.pipe(new stream.PassThrough())
 				.pipe(transcoder).pipe(encoder)
 			let resource = new djsv.AudioResource([], [output], "", 5);
 			

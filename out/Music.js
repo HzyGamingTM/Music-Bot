@@ -29,6 +29,7 @@ const ytdl = require("youtube-dl-exec");
 const prism = __importStar(require("prism-media"));
 const fs = require("node:fs");
 const stream = require("node:stream");
+const childp = require("child_process");
 const FFMPEG_PCM_ARGUMENTS = [
     '-analyzeduration', '0',
     '-loglevel', '0', '-f', 's16le',
@@ -140,6 +141,8 @@ class MusicManager {
             }
             for (let rate of opt.rate)
                 filter += ",atempo=" + rate.toString();
+            if (filter[0] == ",")
+                filter = filter.substring(1);
             if (filter !== "") {
                 ffmpegArgs.push("-filter:a");
                 ffmpegArgs.push(filter);
