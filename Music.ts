@@ -83,13 +83,13 @@ export class MusicManager {
 
 		let player = djsv.createAudioPlayer();
 		player.on(djsv.AudioPlayerStatus.Idle, (oldState, newState) => {
-			console.log("Idle");
 			if (newState.status != djsv.AudioPlayerStatus.Idle)
 				return;
+			console.log("Idle");
 			let voicer = this.voicers.get(guild.id);
 			let track = voicer.queue.next();
 			if (track == undefined) return;
-			this.playNow(guild.id, track.link, cid, track.options);
+			this.playNow(guild.id, cid, track.link, track.options);
 		});
 		voiceConn.subscribe(player);
 
