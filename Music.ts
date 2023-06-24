@@ -51,16 +51,17 @@ class Queue {
 
 	public next() : any {
 		switch(this.loopOption) {
-			case 1: return (this.track != undefined
+			case 2: return (this.track != undefined
 				? this.track
 				: (this.track = this.tracks.shift()));
-			case 2: this.tracks.push(this.track);
+			case 1: this.tracks.push(this.track);
 			case 0: return (this.track = this.tracks.shift());
 		}
 	}
 }
 
 type Voicer = {
+	cid: djs.Snowflake;
 	conn: djsv.VoiceConnection;
 	player: djsv.AudioPlayer;
 	queue: Queue;
@@ -71,12 +72,12 @@ export class MusicManager {
 	static voicers: Map<djs.Snowflake, Voicer>
 		= new Map<djs.Snowflake, Voicer>();
 
-	public static join(channelId: djs.Snowflake, guild: djs.Guild) : void {
-		if (djsv == null) return;
+	public static join(cid: djs.Snowflake, guild: djs.Guild) : number {
+		if (this.voicers.has(guild.id)) return 3;
 		let voiceConn = djsv.joinVoiceChannel({
 			adapterCreator: guild.voiceAdapterCreator,
 			guildId: guild.id,
-			channelId: channelId,
+			channelId: cid,
 			selfMute: false
 		});
 
@@ -88,28 +89,41 @@ export class MusicManager {
 			let voicer = this.voicers.get(guild.id);
 			let track = voicer.queue.next();
 			if (track == undefined) return;
-			this.playNow(guild.id, track.link, track.options);
+			this.playNow(guild.id, track.link, cid, track.options);
 		});
 		voiceConn.subscribe(player);
 
 		let queue = new Queue(0);
 
 		this.voicers.set(guild.id, {
+			cid: cid,
 			conn: voiceConn,
 			player: player,
 			queue: queue,
 		});
+		return 0;
 	}
 
-	public static leave(gid: djs.Snowflake) : void {
-		this.voicers.get(gid).conn.destroy();
-		this.voicers.delete(gid);
-	}
-
-	public static play(gid: djs.Snowflake, link: string, opt: any): number {
-		console.log("Play");
-		let track = { link: link, options: opt };
+	public static leave(gid: djs.Snowflake, cid: djs.Snowflake) : number {
 		let voicer = this.voicers.get(gid);
+		if (voicer == undefined) return 1;
+		if (voicer.cid != cid) return 2;
+
+		voicer.conn.destroy();
+		this.voicers.delete(gid);
+
+		return 0;
+	}
+
+	public static play(
+		gid: djs.Snowflake, cid: djs.Snowflake, 
+		link: string, opt: any
+	): number {
+		let voicer = this.voicers.get(gid);
+		if (voicer == undefined) return 1;
+		if (voicer.cid != cid) return 2;
+
+		let track = { link: link, options: opt };
 		voicer.queue.add(track);
 
 		if (voicer.player.state.status != djsv.AudioPlayerStatus.Idle)
@@ -117,12 +131,16 @@ export class MusicManager {
 		track = voicer.queue.next();
 		// should not happen
 		if (track == undefined) return 69;
-		return this.playNow(gid, track.link, track.options);
+		return this.playNow(gid, cid, track.link, track.options);
 	}
 
-	public static playNow(gid: djs.Snowflake, link: string, opt: any): number {
+	public static playNow(
+		gid: djs.Snowflake, cid: djs.Snowflake,
+		link: string, opt: any
+	): number {
 		let voicer = this.voicers.get(gid);
 		if (voicer == undefined) return 1;
+		if (voicer.cid != cid) return 2;
 		let ffmpegArgs = [
 			"-f", "s16le", "-ac", "2", "-ar", "48000", "-i", "-",
 			"-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
@@ -170,11 +188,39 @@ export class MusicManager {
 		return 0;
 	}
 
-	public static setloop(gid: djs.Snowflake, option: number) : number {
+	public static setloop(
+		gid: djs.Snowflake, cid: djs.Snowflake, option: number
+	) : number {
 		let voicer = this.voicers.get(gid);
 		if (voicer == undefined) return 1;
+		if (voicer.cid != cid) return 2;
 		voicer.queue.loopOption = option;
-		console.log("Loop: " + option);
 		return 0;
+	}
+
+	public static skip(
+		gid: djs.Snowflake, cid: djs.Snowflake, count: number
+	) : number {
+		let voicer = this.voicers.get(gid);
+		if (voicer == undefined) return 1;
+		if (voicer.cid != cid) return 2;
+		if (count == 0) return 0;
+		let track = voicer.queue.track;
+		for (let i = 0; i < count; i++)
+			track = voicer.queue.next();
+
+		if (track == undefined) return 0;
+
+		return this.playNow(gid, cid, track.link, track.options);
+	}
+
+	public static logqueue(
+		gid: djs.Snowflake, cid: djs.Snowflake
+	) {
+		let voicer = this.voicers.get(gid);
+		if (voicer == undefined) return 1;
+		// if (voicer.cid != cid) return 2;
+		console.log(voicer.queue.tracks);
+		console.log(voicer.queue.track);
 	}
 }

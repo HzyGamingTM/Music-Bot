@@ -65,22 +65,22 @@ class Queue {
     }
     next() {
         switch (this.loopOption) {
-            case 1: return (this.track != undefined
+            case 2: return (this.track != undefined
                 ? this.track
                 : (this.track = this.tracks.shift()));
-            case 2: this.tracks.push(this.track);
+            case 1: this.tracks.push(this.track);
             case 0: return (this.track = this.tracks.shift());
         }
     }
 }
 class MusicManager {
-    static join(channelId, guild) {
-        if (djsv == null)
-            return;
+    static join(cid, guild) {
+        if (this.voicers.has(guild.id))
+            return 3;
         let voiceConn = djsv.joinVoiceChannel({
             adapterCreator: guild.voiceAdapterCreator,
             guildId: guild.id,
-            channelId: channelId,
+            channelId: cid,
             selfMute: false
         });
         let player = djsv.createAudioPlayer();
@@ -92,24 +92,35 @@ class MusicManager {
             let track = voicer.queue.next();
             if (track == undefined)
                 return;
-            this.playNow(guild.id, track.link, track.options);
+            this.playNow(guild.id, track.link, cid, track.options);
         });
         voiceConn.subscribe(player);
         let queue = new Queue(0);
         this.voicers.set(guild.id, {
+            cid: cid,
             conn: voiceConn,
             player: player,
             queue: queue,
         });
+        return 0;
     }
-    static leave(gid) {
-        this.voicers.get(gid).conn.destroy();
-        this.voicers.delete(gid);
-    }
-    static play(gid, link, opt) {
-        console.log("Play");
-        let track = { link: link, options: opt };
+    static leave(gid, cid) {
         let voicer = this.voicers.get(gid);
+        if (voicer == undefined)
+            return 1;
+        if (voicer.cid != cid)
+            return 2;
+        voicer.conn.destroy();
+        this.voicers.delete(gid);
+        return 0;
+    }
+    static play(gid, cid, link, opt) {
+        let voicer = this.voicers.get(gid);
+        if (voicer == undefined)
+            return 1;
+        if (voicer.cid != cid)
+            return 2;
+        let track = { link: link, options: opt };
         voicer.queue.add(track);
         if (voicer.player.state.status != djsv.AudioPlayerStatus.Idle)
             return 0;
@@ -117,12 +128,14 @@ class MusicManager {
         // should not happen
         if (track == undefined)
             return 69;
-        return this.playNow(gid, track.link, track.options);
+        return this.playNow(gid, cid, track.link, track.options);
     }
-    static playNow(gid, link, opt) {
+    static playNow(gid, cid, link, opt) {
         let voicer = this.voicers.get(gid);
         if (voicer == undefined)
             return 1;
+        if (voicer.cid != cid)
+            return 2;
         let ffmpegArgs = [
             "-f", "s16le", "-ac", "2", "-ar", "48000", "-i", "-",
             "-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
@@ -166,13 +179,37 @@ class MusicManager {
         // });
         return 0;
     }
-    static setloop(gid, option) {
+    static setloop(gid, cid, option) {
         let voicer = this.voicers.get(gid);
         if (voicer == undefined)
             return 1;
+        if (voicer.cid != cid)
+            return 2;
         voicer.queue.loopOption = option;
-        console.log("Loop: " + option);
         return 0;
+    }
+    static skip(gid, cid, count) {
+        let voicer = this.voicers.get(gid);
+        if (voicer == undefined)
+            return 1;
+        if (voicer.cid != cid)
+            return 2;
+        if (count == 0)
+            return 0;
+        let track = voicer.queue.track;
+        for (let i = 0; i < count; i++)
+            track = voicer.queue.next();
+        if (track == undefined)
+            return 0;
+        return this.playNow(gid, cid, track.link, track.options);
+    }
+    static logqueue(gid, cid) {
+        let voicer = this.voicers.get(gid);
+        if (voicer == undefined)
+            return 1;
+        // if (voicer.cid != cid) return 2;
+        console.log(voicer.queue.tracks);
+        console.log(voicer.queue.track);
     }
 }
 exports.MusicManager = MusicManager;

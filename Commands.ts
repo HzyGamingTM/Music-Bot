@@ -53,9 +53,11 @@ const cmdcfgs = {
 			case "ping": this.Ping(msg); break;
 			case "join": this.Join(msg); break;
 			case "leave": this.Leave(msg); break;
-			case "play": this.Play(msg); break;
+			case "play": this.Play(msg, false); break;
 			case "playnow": this.Play(msg, true); break;
 			case "loop": this.SetLoop(msg); break;
+			case "skip": this.Skip(msg); break;
+			case "queue": this.Queue(msg); break;
 		}
 	}
 
@@ -78,7 +80,12 @@ const cmdcfgs = {
 			return;
 		}
 
-		MusicManager.join(authorVcs.channel.id, guild);
+		let result = MusicManager.join(authorVcs.channel.id, guild);
+		switch (result) {
+			case 3:
+				textChannel.send("I am already in another voice channel.");
+				return;
+		}
 		
 		textChannel.send("Joig");
 	}
@@ -89,29 +96,36 @@ const cmdcfgs = {
 		let authorVcs = msg.member.voice;
 		let textChannel = msg.channel as TextChannel;
 		
-		if (!authorVcs.channel) {
-			textChannel.send("You must be in a vc to leave!");
+		if (!authorVcs.channelId) {
+			textChannel.send("You must be in a vc to kick the bot!");
 			return;
 		}
 
-		if (authorVcs.channel.guild != textChannel.guild) {
-			textChannel.send("You must be in the same server to leave!");
-			return;
-		}
+		let result = MusicManager.leave(guild.id, authorVcs.channelId);
 
-		MusicManager.leave(guild.id);
+		switch (result) {
+			case 1: textChannel.send("I am not in a voice channel."); 
+				return;
+			case 2: textChannel.send("You're not in my voice channel."); 
+				return;
+		}
 		
 		textChannel.send("Leav");
 	}
 
 	static Play(msg: Message, now: boolean = false) : void {
-		// TODO: check if user is in a voice channel
+		let textChannel = msg.channel as TextChannel;
+		let cid = msg.member.voice.channelId;
+		if (!cid) {
+			textChannel.send("ur not in a vc dumbas");
+			return;
+		}
 		let args = proparse.parse(msg.content);
 		let oa = proparse.optandargs(args, this.cmdcfgs.PlayNow);
 		args = oa.args;
 		let options = oa.options;
 
-		let passOptions = {
+		let pOpt = {
 			volume: [],
 			rate: [],
 			pitch: [],
@@ -128,40 +142,50 @@ const cmdcfgs = {
 						// TODO: do something else other than ignore maybe
 						break;
 					}
-					passOptions.rate.push(tempNum);
+					pOpt.rate.push(tempNum);
 					break;
 				case "-v": case "--volume":
 					tempNum = parseFloat(opt[1]);
 					if (isNaN(tempNum)) break;
-					passOptions.volume.push(tempNum);
+					pOpt.volume.push(tempNum);
 					break;
 				case "-p": case "--pitch":
 					tempNum = parseFloat(opt[1]);
 					if (isNaN(tempNum)) break;
-					passOptions.pitch.push(tempNum);
+					pOpt.pitch.push(tempNum);
 					break;
 			}
 		}
 
 		let result = 0;
 		if (now)
-			result = MusicManager.playNow(msg.guild.id, args[1], passOptions);
+			result = MusicManager.playNow(msg.guild.id, cid, args[1], pOpt);
 		else
-			result = MusicManager.play(msg.guild.id, args[1], passOptions);
+			result = MusicManager.play(msg.guild.id, cid, args[1], pOpt);
 
 		if (result == 1) {
-			// TODO: the bot is not in a voice channel
+			textChannel.send("I am not in a voice channel.");
 		} else if (result == 2) {
-			// TODO: the user is not in the same voice channel as the bot
+			textChannel.send("You're not in my voice channel.");
+		} else if (!result) {
+			textChannel.send("Plag");
 		}
 	}
 
 	static SetLoop(msg: Message) {
-		// TODO: check if user is in a voice channel
+		let textChannel = msg.channel as TextChannel;
+		let cid = msg.member.voice.channelId;
+		if (!cid) {
+			textChannel.send("You are not in a voice channel.");
+			return;
+		}
 		// simple parsing
 		let args = msg.content.split(" ");
-		if (args.length < 2) {
-			// TODO: inform the user of the usage
+		if (args.length != 2 || args[1] == "--help" || args[1] == "-h") {
+			textChannel.send(
+				"Usage: `$setloop <option>`\n" +
+					"Possible options: one (or 2), all (or 1)"
+			);
 			return;
 		}
 		let option = args[1].toLowerCase();
@@ -170,12 +194,52 @@ const cmdcfgs = {
 			case "2": case "one": loopOption++;
 			case "1": case "all": loopOption++;
 		}
-		let result = MusicManager.setloop(msg.guild.id, loopOption);
+		let result = MusicManager.setloop(msg.guild.id, cid, loopOption);
 
 		if (result == 1) {
-			// TODO: the bot is not in a voice channel
+			textChannel.send("I am not in a voice channel.");
 		} else if (result == 2) {
-			// TODO: the user is not in the same voice channel as the bot
+			textChannel.send("You have no rights (for now).");
+		} else if (result == 0) {
+			textChannel.send("Loo");
 		}
+	}
+
+	static Skip(msg: Message) {
+		let textChannel = msg.channel as TextChannel;
+		let cid = msg.member.voice.channelId;
+		if (!cid) {
+			textChannel.send("You are not in a voice channel.");
+			return;
+		}
+
+		// simple parsing
+		let args = msg.content.split(" ");
+		if (args[1] == "--help" || args[1] == "-h") {
+			textChannel.send(
+				"Usage: `$setloop <option>`\n" +
+					"Possible options: one (or 2), all (or 1)"
+			);
+			return;
+		}
+		let option = 1;
+		if (args[1] != undefined) {
+			option = parseInt(args[1]);
+			if (isNaN(option)) {
+				textChannel.send("Invalid option at parameter 1: " + args[1]);
+				return;
+			}
+		}
+
+		let result = MusicManager.skip(msg.guild.id, cid, option);
+		switch (result) {
+			case 1: textChannel.send("I am not in a voice channel."); break;
+			case 2: textChannel.send("You're not in my voice channel."); break;
+			default: textChannel.send("Scab"); break;
+		}
+	}
+
+	static Queue(msg: Message) {
+		MusicManager.logqueue(msg.guild.id, 'intercour');
 	}
 }
