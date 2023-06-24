@@ -124,23 +124,23 @@ class MusicManager {
         if (voicer == undefined)
             return 1;
         let ffmpegArgs = [
-            "-f", "s16le", "-i", "-",
+            "-f", "s16le", "-ac", "2", "-ar", "48000", "-i", "-",
             "-analyzeduration", "0", "-loglevel", "0", "-f", "s16le",
             "-ar", "48000", "-ac", "2"
         ];
         {
             let filter = "";
-            if (opt.volume.length) {
-                filter += "volume=" + opt.volume[0].toString();
-                for (let i = 1; i < opt.volume.length; i++)
-                    filter += ",volume=" + opt.volume[i].toString();
-            }
             for (let pitch of opt.pitch) {
                 filter += ",asetrate=48000*" + pitch.toString();
                 filter += ",aresample=48000";
             }
             for (let rate of opt.rate)
                 filter += ",atempo=" + rate.toString();
+            if (opt.volume.length) {
+                filter += ",volume=" + opt.volume[0].toString();
+                for (let i = 1; i < opt.volume.length; i++)
+                    filter += ",volume=" + opt.volume[i].toString();
+            }
             if (filter[0] == ",")
                 filter = filter.substring(1);
             if (filter !== "") {
@@ -156,13 +156,10 @@ class MusicManager {
         let encoder = new prism.opus.Encoder({
             rate: 48000, channels: 2, frameSize: 960
         });
-        /*
-        let subprocess = ytdl(link, { output: "t.webm", format: "251" });
-        subprocess.then(_ => {
-        */
-        let output = fs.createReadStream("t.webm")
+        let subprocess = ytdl.exec(link, { output: "-", format: "251" });
+        // subprocess.then(_ => {
+        let output = subprocess.stdout //fs.createReadStream("o.webm")
             .pipe(demuxer).pipe(decoder)
-            .pipe(new stream.PassThrough())
             .pipe(transcoder).pipe(encoder);
         let resource = new djsv.AudioResource([], [output], "", 5);
         voicer.player.play(resource);
